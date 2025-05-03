@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --card-bg: #ffffff;
+    --border-color: #e5e7eb;
+    --bg-color: #f3f4f6;
+    --text-color: #374151;
+  }
+  
+  .dark {
+    --card-bg: #1f2937;
+    --border-color: #374151;
+    --bg-color: #111827;
+    --text-color: #f3f4f6;
+  }
+}
+
+/* Custom styles */
+body {
+  @apply bg-bg-color text-text-color transition-colors duration-200;
+}
+
+/* Scrollbar styles */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-700 rounded-full;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-600;
+}
+
+/* Ensure scrollbar style applies to the board */
+.board .flex {
+  @apply scrollbar-thin;
+}
+
+/* Custom styles below if needed */ 
