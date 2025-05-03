@@ -10,6 +10,6 @@ export default defineConfig({
     strictPort: true // Force the specified port, fail if not available
   },
   build: {
-    outDir: 'dist' // Keep dist as outDir to match with gh-pages deploy script
+    outDir: 'docs' // Keep docs as outDir to match with gh-pages deploy script
   }
 }) 
