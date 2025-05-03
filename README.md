@@ -1,26 +1,37 @@
 # TrackerApp
 
-A React-based task tracking application that allows you to create custom columns and tasks, and manage them efficiently.
+A modern task tracking application built with React, TypeScript, and Tailwind CSS that allows users to create, organize, and manage tasks in a Kanban-style board.
 
 ## Features
 
-- Create multiple columns for different categories of tasks
-- Add tasks to any column
-- View and edit task details (title, description, due date, priority, status)
-- Modern, responsive UI
-- Optimized for GitHub Pages deployment
+- **Kanban Board**: Organize tasks across customizable columns
+- **Task Management**: Create, edit, and move tasks between columns
+- **Task Details**: Add comments, due dates, and detailed information to tasks
+- **Persistence**: All data is saved to localStorage for persistent state
+- **Dark/Light Mode**: Toggle between dark and light themes
+- **Responsive Design**: Works on desktop and mobile devices
 
-## Prerequisites
+## Technologies
 
-- Node.js (v14+)
-- Yarn package manager
+- React 18
+- TypeScript
+- Tailwind CSS
+- Vite
+- React Router DOM
 
-## Installation
+## Getting Started
+
+### Prerequisites
+
+- Node.js (version 14 or higher)
+- Yarn or npm
+
+### Installation
 
 1. Clone the repository
    ```
-   git clone https://github.com/yourusername/TrackerApp.git
-   cd TrackerApp
+   git clone [repository-url]
+   cd tracker-app
    ```
 
 2. Install dependencies
@@ -32,27 +43,27 @@ A React-based task tracking application that allows you to create custom columns
    ```
    yarn dev
    ```
+   
+4. Open your browser and navigate to `http://localhost:3000`
 
-4. Open your browser and navigate to `http://localhost:5173`
+## Available Scripts
 
-## Building for Production
+- `yarn dev` or `yarn start`: Start the development server
+- `yarn build`: Build the application for production
+- `yarn lint`: Run ESLint to check for code issues
+- `yarn preview`: Preview the production build locally
+- `yarn deploy`: Deploy the application to GitHub Pages
 
-To build the app for production:
+## Deployment
 
-```
-yarn build
-```
+The application is configured for easy deployment to GitHub Pages:
 
-The built files will be in the `dist` directory.
-
-## Deploying to GitHub Pages
-
-1. Update the `base` property in `vite.config.ts` to match your GitHub repository name:
-   ```js
-   base: '/your-repo-name/'
+1. Build the application
+   ```
+   yarn build
    ```
 
-2. Run the deploy command:
+2. Deploy to GitHub Pages
    ```
    yarn deploy
    ```
@@ -63,9 +74,14 @@ The built files will be in the `dist` directory.
   - `components/`: React components
   - `types.ts`: TypeScript type definitions
   - `App.tsx`: Main application component
-  - `main.tsx`: Entry point
-  - `index.css`: Global styles
+  - `main.tsx`: Application entry point
+- `public/`: Static assets
+- `docs/`: Build output directory
 
 ## License
 
-MIT # todo-track
+[MIT License](LICENSE)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
