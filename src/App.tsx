@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import Board from './components/Board'
@@ -246,23 +246,24 @@ function App() {
       <Header />
       <main className="flex-1 px-4 pt-4 pb-8 md:px-6 max-w-[1600px] mx-auto w-full">
         <Routes>
+          <Route path='/' element={<Navigate to='/todo-track' />} />
           <Route 
-            path="/" 
-            element={<Board board={board} onAddColumn={addColumn} onAddTask={addTask} onUpdateTask={updateTask} onUpdateColumn={updateColumn} />} 
-          />
-          <Route 
-            path="/task/:taskId" 
-            element={
-              <TaskDetail 
-                findTask={findTask} 
-                onUpdateTask={updateTask} 
-                columns={board.columns} 
-                comments={comments}
-                addComment={addComment}
-                deleteComment={deleteComment}
-              />
-            } 
-          />
+          path='/todo-track'
+              element={<Board board={board} onAddColumn={addColumn} onAddTask={addTask} onUpdateTask={updateTask} onUpdateColumn={updateColumn} />} 
+            />
+            <Route 
+              path="/todo-track/task/:taskId" 
+              element={
+                <TaskDetail 
+                  findTask={findTask} 
+                  onUpdateTask={updateTask} 
+                  columns={board.columns} 
+                  comments={comments}
+                  addComment={addComment}
+                  deleteComment={deleteComment}
+                />
+              } 
+            />
         </Routes>
       </main>
     </div>

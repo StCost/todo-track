@@ -43,7 +43,7 @@ const Task = ({ task, onUpdateTask }: TaskProps) => {
   };
 
   return (
-    <Link to={`/task/${task.id}`} className="no-underline text-inherit block">
+    <Link to={`/todo-track/task/${task.id}`} className="no-underline text-inherit block">
       <div className="bg-card-bg rounded-md p-2 mb-2 shadow-sm border border-border-color transition-all duration-200 hover:shadow cursor-pointer">
         {/* Card title - editable */}
         <div 
