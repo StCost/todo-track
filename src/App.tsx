@@ -246,13 +246,12 @@ function App() {
       <Header />
       <main className="flex-1 px-4 pt-4 pb-8 md:px-6 max-w-[1600px] mx-auto w-full">
         <Routes>
-          <Route path='/' element={<Navigate to='/todo-track' />} />
           <Route 
-          path='/todo-track'
+          path='/'
               element={<Board board={board} onAddColumn={addColumn} onAddTask={addTask} onUpdateTask={updateTask} onUpdateColumn={updateColumn} />} 
             />
             <Route 
-              path="/todo-track/task/:taskId" 
+              path="/task/:taskId" 
               element={
                 <TaskDetail 
                   findTask={findTask} 
