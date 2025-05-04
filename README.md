@@ -7,7 +7,8 @@ A modern task tracking application built with React, TypeScript, and Tailwind CS
 - **Kanban Board**: Organize tasks across customizable columns
 - **Task Management**: Create, edit, and move tasks between columns
 - **Task Details**: Add comments, due dates, and detailed information to tasks
-- **Persistence**: All data is saved to localStorage for persistent state
+- **User Authentication**: Login/Register with email/password or Google
+- **Cloud Storage**: All data is saved to Firebase Firestore
 - **Dark/Light Mode**: Toggle between dark and light themes
 - **Responsive Design**: Works on desktop and mobile devices
 
@@ -18,6 +19,7 @@ A modern task tracking application built with React, TypeScript, and Tailwind CS
 - Tailwind CSS
 - Vite
 - React Router DOM
+- Firebase (Authentication & Firestore)
 
 ## Getting Started
 
@@ -25,6 +27,7 @@ A modern task tracking application built with React, TypeScript, and Tailwind CS
 
 - Node.js (version 14 or higher)
 - Yarn or npm
+- Firebase project (see Firebase Setup below)
 
 ### Installation
 
@@ -39,12 +42,27 @@ A modern task tracking application built with React, TypeScript, and Tailwind CS
    yarn install
    ```
 
-3. Start the development server
+3. Create a `.env` file in the root directory with your Firebase configuration:
+   ```
+   VITE_FIREBASE_API_KEY=your-api-key
+   VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your-project-id
+   VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+   VITE_FIREBASE_APP_ID=your-app-id
+   VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
+   ```
+
+4. Start the development server
    ```
    yarn dev
    ```
    
-4. Open your browser and navigate to `http://localhost:3000`
+5. Open your browser and navigate to `http://localhost:5173`
+
+## Firebase Setup
+
+This application uses Firebase for authentication and data storage. For detailed setup instructions, please refer to the [Firebase Setup Guide](./docs/FIREBASE_SETUP.md).
 
 ## Available Scripts
 
@@ -72,11 +90,14 @@ The application is configured for easy deployment to GitHub Pages:
 
 - `src/`: Source code
   - `components/`: React components
+    - `auth/`: Authentication components (login, signup, etc.)
+  - `contexts/`: React contexts (authentication)
+  - `firebase/`: Firebase configuration and services
   - `types.ts`: TypeScript type definitions
   - `App.tsx`: Main application component
   - `main.tsx`: Application entry point
 - `public/`: Static assets
-- `docs/`: Build output directory
+- `docs/`: Documentation and build output directory
 
 ## License
 

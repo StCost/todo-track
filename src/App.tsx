@@ -4,6 +4,10 @@ import Header from './components/Header'
 import Board from './components/Board'
 import TaskDetail from './components/TaskDetail'
 import { BoardType, TaskType, ColumnType, CommentType } from './types'
+import PrivateRoute from './components/auth/PrivateRoute'
+import { useAuth } from './contexts/AuthContext'
+import { db } from './firebase/config'
+import { collection, doc, getDoc, setDoc, arrayUnion, updateDoc, Timestamp, deleteDoc, getDocs, query, where } from 'firebase/firestore'
 import React from 'react'
 
 function App() {
@@ -48,16 +52,91 @@ function App() {
     const savedComments = localStorage.getItem('commentsData')
     return savedComments ? JSON.parse(savedComments) : []
   })
+  
+  const { currentUser } = useAuth()
+  const [dataSource, setDataSource] = useState<'local' | 'firebase'>('local')
 
-  // Save to localStorage whenever board changes
+  // Load data from Firebase when user is authenticated
   useEffect(() => {
-    localStorage.setItem('boardData', JSON.stringify(board))
-  }, [board])
+    const loadUserData = async () => {
+      if (!currentUser) {
+        setDataSource('local')
+        return
+      }
 
-  // Save comments to localStorage
+      try {
+        setDataSource('firebase')
+        // Get board data
+        const boardRef = doc(db, 'boards', currentUser.uid)
+        const boardSnap = await getDoc(boardRef)
+        
+        if (boardSnap.exists()) {
+          // Use Firebase data instead of localStorage
+          setBoard(boardSnap.data() as BoardType)
+        } else {
+          // Create Firebase record with current localStorage data
+          await setDoc(boardRef, board)
+        }
+
+        // Get comments
+        const commentsQuery = query(
+          collection(db, 'comments'), 
+          where('userId', '==', currentUser.uid)
+        )
+        const commentsSnap = await getDocs(commentsQuery)
+        const commentsData: CommentType[] = []
+        
+        commentsSnap.forEach((doc) => {
+          commentsData.push(doc.data() as CommentType)
+        })
+        
+        if (commentsData.length > 0) {
+          setComments(commentsData)
+        } else if (comments.length > 0) {
+          // Save existing local comments to Firebase
+          for (const comment of comments) {
+            const commentRef = doc(db, 'comments', `${currentUser.uid}_${comment.id}`)
+            await setDoc(commentRef, { 
+              ...comment,
+              userId: currentUser.uid
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data from Firebase:', error)
+        setDataSource('local')
+      }
+    }
+
+    loadUserData()
+  }, [currentUser])
+
+  // Save to storage (localStorage or Firebase) whenever data changes
   useEffect(() => {
-    localStorage.setItem('commentsData', JSON.stringify(comments))
-  }, [comments])
+    if (dataSource === 'local') {
+      // Save to localStorage
+      localStorage.setItem('boardData', JSON.stringify(board))
+    } else if (currentUser) {
+      // Save to Firebase
+      const saveBoard = async () => {
+        try {
+          const boardRef = doc(db, 'boards', currentUser.uid)
+          await setDoc(boardRef, board)
+        } catch (error) {
+          console.error('Error saving board to Firebase:', error)
+        }
+      }
+      saveBoard()
+    }
+  }, [board, currentUser, dataSource])
+
+  // Save comments to storage
+  useEffect(() => {
+    if (dataSource === 'local') {
+      // Save to localStorage
+      localStorage.setItem('commentsData', JSON.stringify(comments))
+    }
+  }, [comments, dataSource])
 
   // Initialize theme based on localStorage or system preference
   useEffect(() => {
@@ -179,13 +258,28 @@ function App() {
   }
 
   // Comment functions
-  const addComment = (comment: Omit<CommentType, 'id'>) => {
-    // Add the comment to the comments array
+  const addComment = async (comment: Omit<CommentType, 'id'>) => {
+    // Create the comment object
     const newComment: CommentType = {
       ...comment,
       id: board.nextCommentId
     }
     
+    // If user is logged in, save to Firebase
+    if (currentUser && dataSource === 'firebase') {
+      try {
+        const commentRef = doc(db, 'comments', `${currentUser.uid}_${newComment.id}`)
+        await setDoc(commentRef, { 
+          ...newComment,
+          userId: currentUser.uid,
+          createdAt: Timestamp.now().toMillis()
+        })
+      } catch (error) {
+        console.error('Error adding comment to Firebase:', error)
+      }
+    }
+    
+    // Update local state
     setComments(prev => [...prev, newComment])
     
     // Update the task's commentIds array
@@ -202,69 +296,81 @@ function App() {
           ...column,
           tasks: column.tasks.map(task => 
             task.id === comment.taskId 
-              ? { 
-                  ...task, 
-                  // Ensure commentIds exists before updating
-                  commentIds: task.commentIds ? [newComment.id, ...task.commentIds] : [newComment.id] 
-                }
+              ? { ...task, commentIds: [...task.commentIds, newComment.id] } 
               : task
           )
         }))
       }
     })
   }
-  
-  const deleteComment = (commentId: number) => {
-    // Get the comment to find which task it belongs to
-    const commentToDelete = comments.find(c => c.id === commentId)
+
+  const deleteComment = async (commentId: number) => {
+    // If user is logged in, delete from Firebase
+    if (currentUser && dataSource === 'firebase') {
+      try {
+        const commentRef = doc(db, 'comments', `${currentUser.uid}_${commentId}`)
+        await deleteDoc(commentRef)
+      } catch (error) {
+        console.error('Error deleting comment from Firebase:', error)
+      }
+    }
     
-    if (!commentToDelete) return
+    // Filter out the deleted comment
+    setComments(prev => prev.filter(comment => comment.id !== commentId))
     
-    // Remove the comment from the comments array
-    setComments(prev => prev.filter(c => c.id !== commentId))
-    
-    // Remove the comment ID from the task's commentIds array
+    // Remove the comment ID from the task
     setBoard(prev => ({
       ...prev,
       columns: prev.columns.map(column => ({
         ...column,
-        tasks: column.tasks.map(task => 
-          task.id === commentToDelete.taskId
-            ? { 
-                ...task, 
-                // Ensure commentIds exists before filtering
-                commentIds: task.commentIds ? task.commentIds.filter(id => id !== commentId) : [] 
-              }
-            : task
-        )
+        tasks: column.tasks.map(task => ({
+          ...task,
+          commentIds: task.commentIds.filter(id => id !== commentId)
+        }))
       }))
     }))
   }
-
+  
   return (
-    <div className="app min-h-screen flex flex-col bg-bg-color text-text-color transition-colors duration-200">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <Header />
-      <main className="flex-1 px-4 pt-4 pb-8 md:px-6 max-w-[1600px] mx-auto w-full">
-        <Routes>
-          <Route 
-          path='/'
-              element={<Board board={board} onAddColumn={addColumn} onAddTask={addTask} onUpdateTask={updateTask} onUpdateColumn={updateColumn} />} 
-            />
-            <Route 
-              path="/task/:taskId" 
-              element={
-                <TaskDetail 
-                  findTask={findTask} 
+      
+      <Routes>
+        <Route 
+          path="/" 
+          element={
+            <PrivateRoute>
+              <main className="container mx-auto p-4">
+                <Board 
+                  board={board} 
+                  onAddColumn={addColumn} 
+                  onAddTask={addTask} 
                   onUpdateTask={updateTask} 
-                  columns={board.columns} 
-                  comments={comments}
-                  addComment={addComment}
-                  deleteComment={deleteComment}
+                  onUpdateColumn={updateColumn}
                 />
-              } 
-            />
-        </Routes>
-      </main>
+              </main>
+            </PrivateRoute>
+          } 
+        />
+        
+        <Route 
+          path="/task/:taskId" 
+          element={
+            <PrivateRoute>
+              <TaskDetail 
+                findTask={findTask} 
+                onUpdateTask={updateTask} 
+                columns={board.columns}
+                comments={comments} 
+                addComment={addComment}
+                deleteComment={deleteComment}
+              />
+            </PrivateRoute>
+          } 
+        />
+        
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
     </div>
   )
 }
