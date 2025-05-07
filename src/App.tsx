@@ -1,52 +1,44 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useParams, Outlet } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import Board from './components/Board'
 import TaskDetail from './components/TaskDetail'
-import { BoardType, TaskType, ColumnType, CommentType } from './types'
+import { BoardType, TaskType, ColumnType, CommentType, UserBoardsType } from './types'
 import PrivateRoute from './components/auth/PrivateRoute'
 import { useAuth } from './contexts/AuthContext'
 import { db } from './firebase/config'
 import { collection, doc, getDoc, setDoc, arrayUnion, updateDoc, Timestamp, deleteDoc, getDocs, query, where } from 'firebase/firestore'
 import React from 'react'
+import { v4 as uuidv4 } from 'uuid'
 
+// Main App component with all the state and logic
 function App() {
-  const [board, setBoard] = useState<BoardType>(() => {
-    // Load from localStorage on initialization
-    const savedBoard = localStorage.getItem('boardData')
+  // State for multiple boards
+  const [userBoards, setUserBoards] = useState<UserBoardsType>(() => {
+    // Try to load from localStorage first
+    const savedBoards = localStorage.getItem('userBoardsData')
     
-    if (savedBoard) {
-      // Parse the saved board
-      const parsedBoard = JSON.parse(savedBoard)
-      
-      // Migrate existing tasks to ensure they have commentIds array
-      const migratedBoard = {
-        ...parsedBoard,
-        nextCommentId: parsedBoard.nextCommentId || 1,
-        columns: parsedBoard.columns.map((column: ColumnType) => ({
-          ...column,
-          tasks: column.tasks.map((task: any) => ({
-            ...task,
-            // Ensure every task has commentIds
-            commentIds: task.commentIds || [],
-            // Convert created string to number if needed
-            created: typeof task.created === 'string' ? new Date(task.created).getTime() : task.created
-          }))
-        }))
-      }
-      
-      return migratedBoard
+    if (savedBoards) {
+      return JSON.parse(savedBoards)
     }
     
-    // Default empty board
+    // Create default board if none exists
+    const defaultBoardId = uuidv4()
     return {
-      columns: [],
-      nextColumnId: 1,
-      nextTaskId: 1,
-      nextCommentId: 1,
+      activeBoardId: defaultBoardId,
+      boards: {
+        [defaultBoardId]: {
+          id: defaultBoardId,
+          name: 'My First Board',
+          columns: [],
+          nextColumnId: 1,
+          nextTaskId: 1,
+          nextCommentId: 1,
+        }
+      }
     }
   })
-
+  
   // Store comments separately
   const [comments, setComments] = useState<CommentType[]>(() => {
     const savedComments = localStorage.getItem('commentsData')
@@ -55,6 +47,7 @@ function App() {
   
   const { currentUser } = useAuth()
   const [dataSource, setDataSource] = useState<'local' | 'firebase'>('local')
+  const navigate = useNavigate()
 
   // Load data from Firebase when user is authenticated
   useEffect(() => {
@@ -66,16 +59,16 @@ function App() {
 
       try {
         setDataSource('firebase')
-        // Get board data
-        const boardRef = doc(db, 'boards', currentUser.uid)
-        const boardSnap = await getDoc(boardRef)
+        // Get user boards data
+        const userBoardsRef = doc(db, 'userBoards', currentUser.uid)
+        const userBoardsSnap = await getDoc(userBoardsRef)
         
-        if (boardSnap.exists()) {
+        if (userBoardsSnap.exists()) {
           // Use Firebase data instead of localStorage
-          setBoard(boardSnap.data() as BoardType)
+          setUserBoards(userBoardsSnap.data() as UserBoardsType)
         } else {
           // Create Firebase record with current localStorage data
-          await setDoc(boardRef, board)
+          await setDoc(userBoardsRef, userBoards)
         }
 
         // Get comments
@@ -115,20 +108,20 @@ function App() {
   useEffect(() => {
     if (dataSource === 'local') {
       // Save to localStorage
-      localStorage.setItem('boardData', JSON.stringify(board))
+      localStorage.setItem('userBoardsData', JSON.stringify(userBoards))
     } else if (currentUser) {
       // Save to Firebase
-      const saveBoard = async () => {
+      const saveUserBoards = async () => {
         try {
-          const boardRef = doc(db, 'boards', currentUser.uid)
-          await setDoc(boardRef, board)
+          const userBoardsRef = doc(db, 'userBoards', currentUser.uid)
+          await setDoc(userBoardsRef, userBoards)
         } catch (error) {
-          console.error('Error saving board to Firebase:', error)
+          console.error('Error saving boards to Firebase:', error)
         }
       }
-      saveBoard()
+      saveUserBoards()
     }
-  }, [board, currentUser, dataSource])
+  }, [userBoards, currentUser, dataSource])
 
   // Save comments to storage
   useEffect(() => {
@@ -152,44 +145,181 @@ function App() {
     }
   }, []);
 
-  const addColumn = (title: string) => {
-    setBoard(prev => ({
-      ...prev,
-      columns: [...prev.columns, { id: prev.nextColumnId, title, tasks: [] }],
-      nextColumnId: prev.nextColumnId + 1
-    }))
+  // Function to switch between boards
+  const switchBoard = (boardId: string) => {
+    if (userBoards.boards[boardId]) {
+      // Update active board ID
+      setUserBoards(prev => ({
+        ...prev,
+        activeBoardId: boardId
+      }));
+      
+      // Navigate to the board
+      navigate(`/board/${boardId}`);
+    }
   }
 
+  // Function to create a new board
+  const createBoard = (boardName: string) => {
+    const newBoardId = uuidv4()
+    const newBoard: BoardType = {
+      id: newBoardId,
+      name: boardName,
+      columns: [],
+      nextColumnId: 1,
+      nextTaskId: 1,
+      nextCommentId: 1
+    }
+    
+    setUserBoards(prev => ({
+      activeBoardId: newBoardId,
+      boards: {
+        ...prev.boards,
+        [newBoardId]: newBoard
+      }
+    }))
+    
+    // Navigate to the new board
+    navigate(`/board/${newBoardId}`);
+  }
+
+  // Expose all functions and state through context
+  const appContext = {
+    userBoards,
+    setUserBoards,
+    comments,
+    setComments,
+    switchBoard,
+    createBoard,
+    currentUser,
+    dataSource
+  };
+
+  return (
+    <AppContext.Provider value={appContext}>
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+        <Header 
+          boards={Object.values(userBoards.boards)} 
+          activeBoardId={userBoards.activeBoardId}
+          onSwitchBoard={switchBoard}
+          onCreateBoard={createBoard}
+        />
+        <Outlet />
+      </div>
+    </AppContext.Provider>
+  );
+}
+
+// Create context for app state
+type AppContextType = {
+  userBoards: UserBoardsType;
+  setUserBoards: React.Dispatch<React.SetStateAction<UserBoardsType>>;
+  comments: CommentType[];
+  setComments: React.Dispatch<React.SetStateAction<CommentType[]>>;
+  switchBoard: (boardId: string) => void;
+  createBoard: (boardName: string) => void;
+  currentUser: any;
+  dataSource: 'local' | 'firebase';
+};
+
+const AppContext = React.createContext<AppContextType | null>(null);
+
+// Custom hook to access app context
+export function useAppContext() {
+  const context = React.useContext(AppContext);
+  if (!context) {
+    throw new Error('useAppContext must be used within AppProvider');
+  }
+  return context;
+}
+
+// Board page component
+function BoardPage() {
+  const { boardId } = useParams<{ boardId: string }>();
+  const { userBoards, setUserBoards } = useAppContext();
+  
+  // Get current board
+  const board = boardId && userBoards.boards[boardId] 
+    ? userBoards.boards[boardId] 
+    : userBoards.boards[userBoards.activeBoardId];
+    
+  // Update active board ID when URL changes
+  useEffect(() => {
+    if (boardId && userBoards.boards[boardId] && boardId !== userBoards.activeBoardId) {
+      setUserBoards(prev => ({
+        ...prev,
+        activeBoardId: boardId
+      }));
+    }
+  }, [boardId, userBoards.boards, userBoards.activeBoardId, setUserBoards]);
+  
+  const addColumn = (title: string) => {
+    if (!boardId) return;
+    
+    setUserBoards(prev => {
+      const currentBoard = prev.boards[boardId];
+      const updatedBoard = {
+        ...currentBoard,
+        columns: [...currentBoard.columns, { id: currentBoard.nextColumnId, title, tasks: [] }],
+        nextColumnId: currentBoard.nextColumnId + 1
+      }
+      
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updatedBoard
+        }
+      }
+    });
+  };
+  
   const addTask = (columnId: number, title: string) => {
-    setBoard(prev => {
+    if (!boardId) return;
+    
+    setUserBoards(prev => {
+      const currentBoard = prev.boards[boardId];
+      
       const newTask: TaskType = {
-        id: prev.nextTaskId,
+        id: currentBoard.nextTaskId,
         title,
         commentIds: [],
         created: Date.now(),
         dueDate: null,
       }
 
-      return {
-        ...prev,
-        columns: prev.columns.map(column => 
+      const updatedBoard = {
+        ...currentBoard,
+        columns: currentBoard.columns.map(column => 
           column.id === columnId 
             ? { ...column, tasks: [...column.tasks, newTask] } 
             : column
         ),
-        nextTaskId: prev.nextTaskId + 1
+        nextTaskId: currentBoard.nextTaskId + 1
       }
-    })
-  }
-
+      
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updatedBoard
+        }
+      }
+    });
+  };
+  
   const updateTask = (taskId: number, updatedTask: Partial<TaskType>, targetColumnId?: number) => {
-    setBoard(prev => {
+    if (!boardId) return;
+    
+    setUserBoards(prev => {
+      const currentBoard = prev.boards[boardId];
+      
       // First find which column has this task
       let sourceColumnId: number | null = null;
       let taskToMove: TaskType | null = null;
       
       // Find the task and its source column
-      for (const column of prev.columns) {
+      for (const column of currentBoard.columns) {
         const task = column.tasks.find(t => t.id === taskId);
         if (task) {
           sourceColumnId = column.id;
@@ -200,21 +330,29 @@ function App() {
       
       // If task wasn't found or no targetColumnId specified, just update the task
       if (sourceColumnId === null || targetColumnId === undefined) {
-        return {
-          ...prev,
-          columns: prev.columns.map(column => ({
+        const updatedBoard = {
+          ...currentBoard,
+          columns: currentBoard.columns.map(column => ({
             ...column,
             tasks: column.tasks.map(task => 
               task.id === taskId ? { ...task, ...updatedTask } : task
             )
           }))
-        };
+        }
+        
+        return {
+          ...prev,
+          boards: {
+            ...prev.boards,
+            [boardId]: updatedBoard
+          }
+        }
       }
 
       // Moving the task between columns
-      return {
-        ...prev,
-        columns: prev.columns.map(column => {
+      const updatedBoard = {
+        ...currentBoard,
+        columns: currentBoard.columns.map(column => {
           // Remove task from source column
           if (column.id === sourceColumnId) {
             return {
@@ -234,35 +372,159 @@ function App() {
           // Leave other columns unchanged
           return column;
         })
-      };
+      }
+      
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updatedBoard
+        }
+      }
     });
   };
-
+  
   const updateColumn = (columnId: number, updates: Partial<ColumnType>) => {
-    setBoard(prev => ({
-      ...prev,
-      columns: prev.columns.map(column => 
-        column.id === columnId ? { ...column, ...updates } : column
-      )
-    }));
+    if (!boardId) return;
+    
+    setUserBoards(prev => {
+      const currentBoard = prev.boards[boardId];
+      const updatedBoard = {
+        ...currentBoard,
+        columns: currentBoard.columns.map(column => 
+          column.id === columnId ? { ...column, ...updates } : column
+        )
+      }
+      
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updatedBoard
+        }
+      }
+    });
   };
+  
+  return (
+    <main className="container mx-auto p-4">
+      <Board 
+        board={board}
+        onAddColumn={addColumn}
+        onAddTask={addTask}
+        onUpdateTask={updateTask}
+        onUpdateColumn={updateColumn}
+      />
+    </main>
+  );
+}
 
+// Task detail page component
+function TaskDetailPage() {
+  const { boardId, taskId } = useParams<{ boardId: string, taskId: string }>();
+  const { userBoards, setUserBoards, comments, setComments, dataSource, currentUser } = useAppContext();
+  const navigate = useNavigate();
+  
+  if (!boardId || !taskId) {
+    return <Navigate to="/" />;
+  }
+  
+  const board = userBoards.boards[boardId];
+  if (!board) {
+    return <Navigate to="/" />;
+  }
+  
   const findTask = (taskId: number): { task: TaskType | null, column: ColumnType | null } => {
     for (const column of board.columns) {
-      const task = column.tasks.find(t => t.id === taskId)
+      const task = column.tasks.find(t => t.id === taskId);
       if (task) {
-        return { task, column }
+        return { task, column };
       }
     }
-    return { task: null, column: null }
-  }
+    return { task: null, column: null };
+  };
+  
+  const updateTask = (taskId: number, updatedTask: Partial<TaskType>, targetColumnId?: number) => {
+    setUserBoards(prev => {
+      const currentBoard = prev.boards[boardId];
+      
+      // First find which column has this task
+      let sourceColumnId: number | null = null;
+      let taskToMove: TaskType | null = null;
+      
+      // Find the task and its source column
+      for (const column of currentBoard.columns) {
+        const task = column.tasks.find(t => t.id === taskId);
+        if (task) {
+          sourceColumnId = column.id;
+          taskToMove = { ...task, ...updatedTask };
+          break;
+        }
+      }
+      
+      // If task wasn't found or no targetColumnId specified, just update the task
+      if (sourceColumnId === null || targetColumnId === undefined) {
+        const updatedBoard = {
+          ...currentBoard,
+          columns: currentBoard.columns.map(column => ({
+            ...column,
+            tasks: column.tasks.map(task => 
+              task.id === taskId ? { ...task, ...updatedTask } : task
+            )
+          }))
+        }
+        
+        return {
+          ...prev,
+          boards: {
+            ...prev.boards,
+            [boardId]: updatedBoard
+          }
+        }
+      }
 
-  // Comment functions
+      // Moving the task between columns
+      const updatedBoard = {
+        ...currentBoard,
+        columns: currentBoard.columns.map(column => {
+          // Remove task from source column
+          if (column.id === sourceColumnId) {
+            return {
+              ...column,
+              tasks: column.tasks.filter(task => task.id !== taskId)
+            };
+          }
+          
+          // Add task to target column
+          if (column.id === targetColumnId && taskToMove) {
+            return {
+              ...column,
+              tasks: [...column.tasks, taskToMove]
+            };
+          }
+          
+          // Leave other columns unchanged
+          return column;
+        })
+      }
+      
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updatedBoard
+        }
+      }
+    });
+  };
+  
   const addComment = async (comment: Omit<CommentType, 'id'>) => {
+    const currentBoard = userBoards.boards[boardId];
+    
     // Create the comment object
     const newComment: CommentType = {
       ...comment,
-      id: board.nextCommentId
+      id: currentBoard.nextCommentId
     }
     
     // If user is logged in, save to Firebase
@@ -272,6 +534,7 @@ function App() {
         await setDoc(commentRef, { 
           ...newComment,
           userId: currentUser.uid,
+          boardId: boardId,
           createdAt: Timestamp.now().toMillis()
         })
       } catch (error) {
@@ -282,17 +545,13 @@ function App() {
     // Update local state
     setComments(prev => [...prev, newComment])
     
-    // Update the task's commentIds array
-    setBoard(prev => {
+    // Update the board's nextCommentId and the task's commentIds array
+    setUserBoards(prev => {
+      const currentBoard = prev.boards[boardId];
       const updatedBoard = {
-        ...prev,
-        nextCommentId: prev.nextCommentId + 1
-      }
-      
-      // Find the task and update its commentIds
-      return {
-        ...updatedBoard,
-        columns: updatedBoard.columns.map(column => ({
+        ...currentBoard,
+        nextCommentId: currentBoard.nextCommentId + 1,
+        columns: currentBoard.columns.map(column => ({
           ...column,
           tasks: column.tasks.map(task => 
             task.id === comment.taskId 
@@ -301,9 +560,17 @@ function App() {
           )
         }))
       }
-    })
-  }
-
+      
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updatedBoard
+        }
+      }
+    });
+  };
+  
   const deleteComment = async (commentId: number) => {
     // If user is logged in, delete from Firebase
     if (currentUser && dataSource === 'firebase') {
@@ -319,60 +586,51 @@ function App() {
     setComments(prev => prev.filter(comment => comment.id !== commentId))
     
     // Remove the comment ID from the task
-    setBoard(prev => ({
-      ...prev,
-      columns: prev.columns.map(column => ({
-        ...column,
-        tasks: column.tasks.map(task => ({
-          ...task,
-          commentIds: task.commentIds.filter(id => id !== commentId)
+    setUserBoards(prev => {
+      const currentBoard = prev.boards[boardId];
+      const updatedBoard = {
+        ...currentBoard,
+        columns: currentBoard.columns.map(column => ({
+          ...column,
+          tasks: column.tasks.map(task => ({
+            ...task,
+            commentIds: task.commentIds.filter(id => id !== commentId)
+          }))
         }))
-      }))
-    }))
-  }
+      }
+      
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updatedBoard
+        }
+      }
+    });
+  };
   
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <Header />
-      
-      <Routes>
-        <Route 
-          path="/" 
-          element={
-            <PrivateRoute>
-              <main className="container mx-auto p-4">
-                <Board 
-                  board={board} 
-                  onAddColumn={addColumn} 
-                  onAddTask={addTask} 
-                  onUpdateTask={updateTask} 
-                  onUpdateColumn={updateColumn}
-                />
-              </main>
-            </PrivateRoute>
-          } 
-        />
-        
-        <Route 
-          path="/task/:taskId" 
-          element={
-            <PrivateRoute>
-              <TaskDetail 
-                findTask={findTask} 
-                onUpdateTask={updateTask} 
-                columns={board.columns}
-                comments={comments} 
-                addComment={addComment}
-                deleteComment={deleteComment}
-              />
-            </PrivateRoute>
-          } 
-        />
-        
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </div>
-  )
+    <TaskDetail 
+      findTask={() => findTask(parseInt(taskId, 10))}
+      onUpdateTask={updateTask} 
+      columns={board.columns}
+      comments={comments.filter(c => c.taskId === parseInt(taskId, 10))} 
+      addComment={addComment}
+      deleteComment={deleteComment}
+    />
+  );
 }
 
-export default App 
+// Root component with routing
+export default function AppWithRouting() {
+  return (
+    <Routes>
+      <Route path="/" element={<App />}>
+        <Route index element={<Navigate to={`/board/default`} replace />} />
+        <Route path="/board/:boardId" element={<PrivateRoute><BoardPage /></PrivateRoute>} />
+        <Route path="/board/:boardId/task/:taskId" element={<PrivateRoute><TaskDetailPage /></PrivateRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  );
+} 

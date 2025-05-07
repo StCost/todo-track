@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { TaskType } from '../types'
 import React, { useState, useRef, useEffect } from 'react'
 import EditableText from './EditableText'
@@ -9,6 +9,9 @@ interface TaskProps {
 }
 
 const Task = ({ task, onUpdateTask }: TaskProps) => {
+  // Get board ID from URL
+  const { boardId } = useParams<{ boardId: string }>();
+  
   // Format date for display
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
@@ -43,7 +46,7 @@ const Task = ({ task, onUpdateTask }: TaskProps) => {
   };
 
   return (
-    <Link to={`/task/${task.id}`} className="no-underline text-inherit block">
+    <Link to={`/board/${boardId}/task/${task.id}`} className="no-underline text-inherit block">
       <div className="bg-card-bg rounded-md p-2 mb-2 shadow-sm border border-border-color transition-all duration-200 hover:shadow cursor-pointer">
         {/* Card title - editable */}
         <div 

@@ -20,7 +20,7 @@ const TaskDetail = ({
   addComment, 
   deleteComment 
 }: TaskDetailProps) => {
-  const { taskId } = useParams<{ taskId: string }>()
+  const { boardId, taskId } = useParams<{ boardId: string, taskId: string }>()
   const navigate = useNavigate()
   const [task, setTask] = useState<TaskType | null>(null)
   const [column, setColumn] = useState<ColumnType | null>(null)
@@ -47,10 +47,10 @@ const TaskDetail = ({
         setTitle(foundTask.title)
         setColumnId(foundColumn.id)
       } else {
-        navigate('/')
+        navigate(boardId ? `/board/${boardId}` : '/')
       }
     }
-  }, [taskId, findTask, navigate])
+  }, [taskId, findTask, navigate, boardId])
 
   useEffect(() => {
     // Close dropdown when clicking outside
@@ -111,7 +111,7 @@ const TaskDetail = ({
   }
 
   const handleCancel = () => {
-    navigate('/')
+    navigate(boardId ? `/board/${boardId}` : '/')
   }
 
   const toggleColumnDropdown = () => {
@@ -158,7 +158,8 @@ const TaskDetail = ({
                   </div>
                 )}
               </div>
-              <button 
+              
+              <button
                 type="button" 
                 onClick={handleCancel} 
                 className="text-gray-500 dark:text-gray-400 hover:bg-bg-color p-2 rounded-full transition-colors duration-150"
@@ -183,58 +184,63 @@ const TaskDetail = ({
                 />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div>
-                  <div className="mb-4">
-                    <label htmlFor="comments" className="block mb-2 text-sm font-medium text-text-color">
-                      Comments
-                    </label>
-                    <div className="flex">
-                      <textarea
-                        id="newComment"
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        rows={3}
-                        className="flex-1 p-3 bg-card-bg text-text-color border border-border-color rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Add a comment..."
-                      />
-                      <button
-                        onClick={handleAddComment}
-                        className="px-4 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                      >
-                        Add
-                      </button>
+              <div className="mt-6">
+                <div className="flex flex-col space-y-4">
+                  {/* Add comment form */}
+                  <div className="bg-bg-color p-4 rounded-md border border-border-color">
+                    <h3 className="text-text-color text-sm font-semibold mb-3">Add a comment</h3>
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Write your comment here..."
+                      className="w-full p-3 border border-border-color rounded-md mb-3 bg-card-bg text-text-color focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                    ></textarea>
+                    <button
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim()}
+                      className={`px-4 py-2 rounded-md text-white text-sm font-medium ${
+                        !newComment.trim()
+                          ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
+                          : 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
+                      }`}
+                    >
+                      Add Comment
+                    </button>
+                  </div>
+                  
+                  {/* Comment list */}
+                  <div>
+                    <h3 className="text-text-color text-sm font-semibold mb-3">Comments ({taskComments.length})</h3>
+                    <div className="space-y-4 mt-4 max-h-80 overflow-y-auto">
+                      {taskComments.length > 0 ? (
+                        taskComments.map(comment => (
+                          <div key={comment.id} className="p-3 bg-bg-color rounded-md border border-border-color relative">
+                            <div className="text-text-color pr-8">{comment.text}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              {new Date(comment.createdAt).toLocaleString()}
+                            </div>
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="absolute top-2 right-2 text-gray-500 hover:text-red-500 transition-colors"
+                              aria-label="Delete comment"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-gray-500 dark:text-gray-400 italic">No comments yet</div>
+                      )}
                     </div>
                   </div>
                   
-                  <div className="space-y-4 mt-4 max-h-80 overflow-y-auto">
-                    {taskComments.length > 0 ? (
-                      taskComments.map(comment => (
-                        <div key={comment.id} className="p-3 bg-bg-color rounded-md border border-border-color relative">
-                          <div className="text-text-color pr-8">{comment.text}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                            {new Date(comment.createdAt).toLocaleString()}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="absolute top-2 right-2 text-gray-500 hover:text-red-500 transition-colors"
-                            aria-label="Delete comment"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-gray-500 dark:text-gray-400 italic">No comments yet</div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="space-y-6">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-                    Created on {new Date(task.created).toLocaleString()}
+                  <div className="space-y-6">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                      Created on {new Date(task.created).toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>

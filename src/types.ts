@@ -13,10 +13,17 @@ export interface ColumnType {
 }
 
 export interface BoardType {
+  id: string
+  name: string
   columns: ColumnType[]
   nextColumnId: number
   nextTaskId: number
   nextCommentId: number
+}
+
+export interface UserBoardsType {
+  activeBoardId: string
+  boards: {[key: string]: BoardType}
 }
 
 export interface CommentType {
